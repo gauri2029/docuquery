@@ -1,4 +1,18 @@
 services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/docuquery
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=docuquery123
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHROMADB_URL=http://chromadb:8000
+    depends_on:
+      - postgres
+      - chromadb
+
   chromadb:
     image: chromadb/chroma:latest
     ports:

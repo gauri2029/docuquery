@@ -1,5 +1,6 @@
 package com.docuquery.docuquery.controller;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -15,10 +16,10 @@ public class HealthController {
     private final DataSource dataSource;
     private final WebClient chromaClient;
 
-    public HealthController(DataSource dataSource) {
+    public HealthController(DataSource dataSource, @Value("${chromadb.url}") String chromaUrl) {
         this.dataSource = dataSource;
         this.chromaClient = WebClient.builder()
-                .baseUrl("http://localhost:8000")
+                .baseUrl(chromaUrl)
                 .build();
     }
 

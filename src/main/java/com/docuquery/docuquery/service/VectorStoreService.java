@@ -1,5 +1,6 @@
 package com.docuquery.docuquery.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -16,9 +17,9 @@ public class VectorStoreService {
     private static final String BASE_PATH = "/api/v2/tenants/default_tenant/databases/default_database";
     private String collectionId;
 
-    public VectorStoreService() {
+    public VectorStoreService(@Value("${chromadb.url}") String chromaUrl) {
         this.webClient = WebClient.builder()
-                .baseUrl("http://localhost:8000")
+                .baseUrl(chromaUrl)
                 .build();
     }
 
