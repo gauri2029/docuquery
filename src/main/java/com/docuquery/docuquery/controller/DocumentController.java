@@ -60,4 +60,10 @@ public class DocumentController {
     public List<Document> listDocuments() {
         return documentRepository.findAll();
     }
+
+    @DeleteMapping("/{id}")
+    public Map<String, String> deleteDocument(@PathVariable Long id) {
+        documentRepository.deleteById(id);
+        return Map.of("status", "deleted", "documentId", String.valueOf(id));
+    }
 }
