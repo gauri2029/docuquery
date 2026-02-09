@@ -1,0 +1,21 @@
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+
+  postgres:
+    image: postgres:16
+    ports:
+      - "5555:5432"
+    environment:
+      POSTGRES_DB: docuquery
+      POSTGRES_PASSWORD: docuquery123
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+
+volumes:
+  chroma-data:
+  pg-data:
