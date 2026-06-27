@@ -215,7 +215,7 @@ npm run dev
 
 ### Main user flow
 
-1. Paste your documentation text and give it a title → click **Ingest document**
+1. Upload a text/Markdown file (drag & drop or file picker) — or paste text — and give it a title → click **Ingest document**
 2. The document is chunked, embedded, and stored (success banner shows chunk count)
 3. Type a question in the query panel → press **Enter** or click **Ask DocuQuery**
 4. The AI-generated answer appears, annotated with the number of source chunks used

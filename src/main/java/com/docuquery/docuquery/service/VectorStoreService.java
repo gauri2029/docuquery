@@ -20,6 +20,8 @@ public class VectorStoreService {
     public VectorStoreService(@Value("${chromadb.url}") String chromaUrl) {
         this.webClient = WebClient.builder()
                 .baseUrl(chromaUrl)
+                // Query results for large collections can exceed the default 256 KB buffer.
+                .codecs(c -> c.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
                 .build();
     }
 
@@ -89,5 +91,18 @@ public class VectorStoreService {
 
         List<List<String>> documents = (List<List<String>>) response.get("documents");
         return documents.get(0);
+    }
+
+    /** Remove all vectors belonging to a document so deletes don't leave orphans in ChromaDB. */
+    @SuppressWarnings("unchecked")
+    public void deleteByDocument(Long documentId) {
+        String colId = getOrCreateCollection();
+
+        webClient.post()
+                .uri(BASE_PATH + "/collections/" + colId + "/delete")
+                .bodyValue(Map.of("where", Map.of("documentId", String.valueOf(documentId))))
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
     }
 }

@@ -61,7 +61,7 @@ public class QueryController {
                 List<List<Double>> embeddings = embeddingService.embed(List.of(question));
                 List<Double> queryEmbedding = embeddings.get(0);
 
-                List<String> relevantChunks = vectorStoreService.query(queryEmbedding, 5);
+                List<String> relevantChunks = vectorStoreService.query(queryEmbedding, 12);
 
                 String context = String.join("\n\n---\n\n", relevantChunks);
                 String userMessage = "Context:\n" + context + "\n\nQuestion: " + question;

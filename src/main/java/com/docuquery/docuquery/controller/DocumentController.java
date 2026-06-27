@@ -63,6 +63,7 @@ public class DocumentController {
 
     @DeleteMapping("/{id}")
     public Map<String, String> deleteDocument(@PathVariable Long id) {
+        vectorStoreService.deleteByDocument(id);  // remove vectors too, not just the metadata row
         documentRepository.deleteById(id);
         return Map.of("status", "deleted", "documentId", String.valueOf(id));
     }

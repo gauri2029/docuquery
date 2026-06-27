@@ -70,6 +70,36 @@ describe('IngestPanel', () => {
     expect(onSuccess).toHaveBeenCalledWith(mockResult);
   });
 
+  it('reads an uploaded text file into the content field and auto-fills the title', async () => {
+    render(<IngestPanel onSuccess={onSuccess} />);
+    const file = new File(['Embeddings power semantic search across documents.'], 'guide.md', {
+      type: 'text/markdown',
+    });
+    await userEvent.upload(screen.getByLabelText(/choose a file/i), file);
+
+    await waitFor(() => {
+      expect((screen.getByLabelText(/content/i) as HTMLTextAreaElement).value).toMatch(
+        /Embeddings power semantic search/,
+      );
+      // Title is derived from the filename without its extension.
+      expect((screen.getByLabelText(/document title/i) as HTMLInputElement).value).toBe('guide');
+      expect(screen.getByText('guide.md')).toBeTruthy();
+    });
+  });
+
+  it('rejects an unsupported file type', async () => {
+    render(<IngestPanel onSuccess={onSuccess} />);
+    const file = new File(['%PDF-1.4 binary'], 'report.pdf', { type: 'application/pdf' });
+    // applyAccept: false bypasses the input's accept filter so we exercise the
+    // JS-level guard (the same guard that protects the drag-and-drop path).
+    await userEvent.upload(screen.getByLabelText(/choose a file/i), file, { applyAccept: false });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Unsupported file type/i)).toBeTruthy();
+    });
+    expect(mockIngest).not.toHaveBeenCalled();
+  });
+
   it('shows API error on failure', async () => {
     const { ApiError } = await import('../api/docuquery');
     mockIngest.mockRejectedValueOnce(new ApiError(500, 'Internal server error'));
