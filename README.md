@@ -179,12 +179,71 @@ DocuQuery ships with production-style observability out of the box.
 
 ---
 
+## 🖥️ Frontend UI
+
+DocuQuery ships with a polished React interface — no curl commands needed.
+
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite)](https://vite.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38BDF8?logo=tailwindcss)](https://tailwindcss.com/)
+
+> **Screenshot:** _(add a screenshot of the running UI here)_
+
+### UI features
+
+| Section | What it does |
+|---|---|
+| **Header** | DocuQuery branding + live backend health indicator (green/amber/red) |
+| **Add Document** | Title + content form → calls `POST /api/v1/documents/ingest` |
+| **Document Library** | Lists all ingested docs with chunk counts; supports deletion |
+| **Ask a Question** | Natural-language input with example prompts; Enter to submit |
+| **Answer Display** | AI answer, source-chunk count, client-measured latency, copy button |
+
+### Starting the frontend
+
+```bash
+# Start the backend first
+docker compose up
+
+# Then start the frontend dev server (in a new terminal)
+cd frontend
+npm install
+npm run dev
+# → open http://localhost:5173
+```
+
+### Main user flow
+
+1. Paste your documentation text and give it a title → click **Ingest document**
+2. The document is chunked, embedded, and stored (success banner shows chunk count)
+3. Type a question in the query panel → press **Enter** or click **Ask DocuQuery**
+4. The AI-generated answer appears, annotated with the number of source chunks used
+
+### Environment variable
+
+```bash
+# frontend/.env  (copy from .env.example)
+VITE_API_BASE_URL=   # leave empty for dev (proxy handles it), or set to http://host:8080 for prod
+```
+
+See [`frontend/README.md`](frontend/README.md) for full setup, Docker build, and troubleshooting.
+
+---
+
 ## 📁 Project Structure
 
 ```
 docuquery/
 ├── Dockerfile                     # Multi-stage build (Maven → JRE)
 ├── docker-compose.yml             # 5 services: API, ChromaDB, PostgreSQL, Prometheus, Grafana
+├── frontend/                      # React + TypeScript + Vite + Tailwind UI
+│   ├── src/
+│   │   ├── api/docuquery.ts       # Typed API client
+│   │   ├── components/            # Header, IngestPanel, QueryInterface, AnswerDisplay, …
+│   │   ├── hooks/                 # useHealth, useDocuments
+│   │   └── types/index.ts         # Interfaces matching backend DTOs
+│   └── README.md                  # Frontend-specific setup guide
 ├── infra/
 │   └── prometheus/prometheus.yml  # Scrape config
 ├── src/main/java/com/docuquery/docuquery/

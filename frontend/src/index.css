@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+
+  * {
+    @apply box-border;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.slate.300') transparent;
+  }
+
+  .answer-prose p {
+    @apply mb-3 last:mb-0;
+  }
+
+  .answer-prose ul,
+  .answer-prose ol {
+    @apply mb-3 ml-4 space-y-1;
+  }
+
+  .answer-prose li {
+    @apply list-disc ml-2;
+  }
+
+  .answer-prose code {
+    @apply font-mono text-sm bg-slate-100 rounded px-1 py-0.5;
+  }
+}
