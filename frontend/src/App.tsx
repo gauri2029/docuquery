@@ -1,30 +1,38 @@
-import { useState, useCallback, useRef } from 'react';
-import type { QueryResult } from './types';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import type { IngestResponse, QueryResult } from './types';
 import { docuqueryApi, ApiError } from './api/docuquery';
-import { useHealth } from './hooks/useHealth';
-import { useDocuments } from './hooks/useDocuments';
 import { Header } from './components/Header';
+import { Hero } from './components/Hero';
+import { Stepper } from './components/Stepper';
 import { IngestPanel } from './components/IngestPanel';
-import { DocumentList } from './components/DocumentList';
 import { QueryInterface } from './components/QueryInterface';
+import { QueryLocked } from './components/QueryLocked';
 import { AnswerDisplay } from './components/AnswerDisplay';
-import type { IngestResponse } from './types';
 
 export default function App() {
-  const { status, detail } = useHealth();
-  const { documents, loading: docsLoading, error: docsError, refresh, remove } = useDocuments();
+  // The document ingested in this session. Drives the two-step workflow.
+  const [activeDoc, setActiveDoc] = useState<IngestResponse | null>(null);
+  const [focusSignal, setFocusSignal] = useState(0);
 
   const [queryLoading, setQueryLoading] = useState(false);
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
   const queryAbortRef = useRef<AbortController | null>(null);
 
-  const handleIngestSuccess = useCallback(
-    (_result: IngestResponse) => {
-      void refresh();
-    },
-    [refresh],
-  );
+  const querySectionRef = useRef<HTMLDivElement>(null);
+
+  // Reveal: when a document becomes active, scroll to and focus the query area.
+  useEffect(() => {
+    if (!activeDoc) return;
+    querySectionRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    setFocusSignal((n) => n + 1);
+  }, [activeDoc]);
+
+  const handleIngestSuccess = useCallback((result: IngestResponse) => {
+    setQueryResult(null);
+    setQueryError(null);
+    setActiveDoc(result);
+  }, []);
 
   const handleQuery = useCallback(async (question: string) => {
     queryAbortRef.current?.abort();
@@ -48,60 +56,97 @@ export default function App() {
     }
   }, []);
 
+  const handleAskAnother = useCallback(() => {
+    setQueryResult(null);
+    setQueryError(null);
+    setFocusSignal((n) => n + 1);
+  }, []);
+
+  // Resets the session view only — does not delete anything on the server.
+  const handleStartOver = useCallback(() => {
+    queryAbortRef.current?.abort();
+    setQueryResult(null);
+    setQueryError(null);
+    setActiveDoc(null);
+    window.scrollTo?.({ top: 0, behavior: 'smooth' });
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <Header status={status} detail={detail} />
+      <Header />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
-        {/* Backend offline warning */}
-        {status === 'offline' && (
+      <main className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <Hero />
+
+        {/* Progress + start-over */}
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4">
+          <Stepper current={activeDoc ? 2 : 1} step1Complete={!!activeDoc} />
+          {activeDoc && (
+            <button
+              type="button"
+              onClick={handleStartOver}
+              className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded-lg px-2.5 py-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Use another document
+            </button>
+          )}
+        </div>
+
+        {/* Step 1 — ingestion (primary before a document exists) */}
+        {!activeDoc && <IngestPanel onSuccess={handleIngestSuccess} />}
+
+        {/* Success confirmation */}
+        {activeDoc && (
           <div
-            role="alert"
-            className="mb-6 flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl animate-fade-in"
+            role="status"
+            className="flex items-start gap-3 p-4 rounded-2xl border border-emerald-200 bg-emerald-50 animate-slide-up"
           >
-            <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+            <span className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
             <div>
-              <p className="text-sm font-semibold text-amber-800">Backend unreachable</p>
-              <p className="text-sm text-amber-700 mt-0.5">
-                Make sure the DocuQuery Spring Boot API is running on{' '}
-                <code className="font-mono text-xs bg-amber-100 rounded px-1 py-0.5">localhost:8080</code>.
-                Run <code className="font-mono text-xs bg-amber-100 rounded px-1 py-0.5">docker compose up</code> to start all services.
+              <p className="text-sm font-semibold text-emerald-900">
+                {activeDoc.title} is ready — ask your first question.
+              </p>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                Embedded into the knowledge base · {activeDoc.chunksCreated} chunk
+                {activeDoc.chunksCreated !== 1 ? 's' : ''} indexed
               </p>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start">
-          {/* Left column: ingestion + document library */}
-          <div className="space-y-6">
-            <IngestPanel onSuccess={handleIngestSuccess} />
-            <DocumentList
-              documents={documents}
-              loading={docsLoading}
-              error={docsError}
-              onDelete={remove}
-              onRefresh={refresh}
-            />
-          </div>
-
-          {/* Right column: query + answer */}
-          <div className="space-y-6">
-            <QueryInterface loading={queryLoading} onSubmit={handleQuery} />
-            <AnswerDisplay
-              result={queryResult}
-              loading={queryLoading}
-              error={queryError}
-            />
-          </div>
+        {/* Step 2 — query workspace (locked until ingestion succeeds) */}
+        <div ref={querySectionRef} className="scroll-mt-20">
+          {activeDoc ? (
+            <div className="space-y-6 animate-slide-up">
+              <QueryInterface
+                loading={queryLoading}
+                onSubmit={handleQuery}
+                activeDocTitle={activeDoc.title}
+                focusSignal={focusSignal}
+              />
+              <AnswerDisplay
+                result={queryResult}
+                loading={queryLoading}
+                error={queryError}
+                onAskAnother={handleAskAnother}
+              />
+            </div>
+          ) : (
+            <QueryLocked />
+          )}
         </div>
       </main>
 
-      <footer className="border-t border-slate-200 bg-white py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs text-slate-400">
-          <span>DocuQuery · RAG-powered document intelligence</span>
-          <span>Spring Boot · ChromaDB · OpenAI · PostgreSQL</span>
+      <footer className="border-t border-slate-200 bg-white py-4 mt-4">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-400">
+          DocuQuery · source-grounded answers from your documentation
         </div>
       </footer>
     </div>

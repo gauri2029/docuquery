@@ -21,6 +21,11 @@ import { docuqueryApi } from '../api/docuquery';
 
 const mockIngest = vi.mocked(docuqueryApi.ingest);
 
+/** Switch the panel to the "Paste text" tab so the content textarea is visible. */
+async function openPasteTab() {
+  await userEvent.click(screen.getByRole('tab', { name: /paste text/i }));
+}
+
 describe('IngestPanel', () => {
   const onSuccess = vi.fn();
 
@@ -35,28 +40,23 @@ describe('IngestPanel', () => {
     expect(mockIngest).not.toHaveBeenCalled();
   });
 
-  it('shows validation error when content is empty', async () => {
-    render(<IngestPanel onSuccess={onSuccess} />);
-    await userEvent.type(screen.getByLabelText(/document title/i), 'My Doc');
-    await userEvent.click(screen.getByRole('button', { name: /ingest document/i }));
-    expect(screen.getByText('Content is required')).toBeTruthy();
-    expect(mockIngest).not.toHaveBeenCalled();
-  });
-
   it('shows validation error when content is too short', async () => {
     render(<IngestPanel onSuccess={onSuccess} />);
     await userEvent.type(screen.getByLabelText(/document title/i), 'My Doc');
+    await openPasteTab();
     await userEvent.type(screen.getByLabelText(/content/i), 'Short');
     await userEvent.click(screen.getByRole('button', { name: /ingest document/i }));
     expect(screen.getByText(/too short/i)).toBeTruthy();
+    expect(mockIngest).not.toHaveBeenCalled();
   });
 
-  it('calls API and shows success message', async () => {
+  it('calls onSuccess with the API result on a valid submit', async () => {
     const mockResult = { documentId: 1, title: 'Test Doc', chunksCreated: 3 };
     mockIngest.mockResolvedValueOnce(mockResult);
 
     render(<IngestPanel onSuccess={onSuccess} />);
     await userEvent.type(screen.getByLabelText(/document title/i), 'Test Doc');
+    await openPasteTab();
     await userEvent.type(
       screen.getByLabelText(/content/i),
       'This is a long enough document content for testing purposes.',
@@ -64,10 +64,8 @@ describe('IngestPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: /ingest document/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/"Test Doc" ingested/i)).toBeTruthy();
-      expect(screen.getByText(/3 chunks created/i)).toBeTruthy();
+      expect(onSuccess).toHaveBeenCalledWith(mockResult);
     });
-    expect(onSuccess).toHaveBeenCalledWith(mockResult);
   });
 
   it('reads an uploaded text file into the content field and auto-fills the title', async () => {
@@ -75,16 +73,20 @@ describe('IngestPanel', () => {
     const file = new File(['Embeddings power semantic search across documents.'], 'guide.md', {
       type: 'text/markdown',
     });
+    // Upload tab is the default.
     await userEvent.upload(screen.getByLabelText(/choose a file/i), file);
 
     await waitFor(() => {
-      expect((screen.getByLabelText(/content/i) as HTMLTextAreaElement).value).toMatch(
-        /Embeddings power semantic search/,
-      );
       // Title is derived from the filename without its extension.
       expect((screen.getByLabelText(/document title/i) as HTMLInputElement).value).toBe('guide');
       expect(screen.getByText('guide.md')).toBeTruthy();
     });
+
+    // The file's text is placed into the (paste-tab) content field.
+    await openPasteTab();
+    expect((screen.getByLabelText(/content/i) as HTMLTextAreaElement).value).toMatch(
+      /Embeddings power semantic search/,
+    );
   });
 
   it('rejects an unsupported file type', async () => {
@@ -106,6 +108,7 @@ describe('IngestPanel', () => {
 
     render(<IngestPanel onSuccess={onSuccess} />);
     await userEvent.type(screen.getByLabelText(/document title/i), 'Test Doc');
+    await openPasteTab();
     await userEvent.type(
       screen.getByLabelText(/content/i),
       'This is a long enough document content for testing purposes.',

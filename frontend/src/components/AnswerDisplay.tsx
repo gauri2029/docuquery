@@ -7,6 +7,8 @@ interface AnswerDisplayProps {
   result: QueryResult | null;
   loading: boolean;
   error: string | null;
+  /** Clears the current answer and returns focus to the question input. */
+  onAskAnother?: () => void;
 }
 
 function formatLatency(ms: number) {
@@ -14,7 +16,7 @@ function formatLatency(ms: number) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-export function AnswerDisplay({ result, loading, error }: AnswerDisplayProps) {
+export function AnswerDisplay({ result, loading, error, onAskAnother }: AnswerDisplayProps) {
   const [copied, setCopied] = useState(false);
 
   async function copyAnswer() {
@@ -169,6 +171,20 @@ export function AnswerDisplay({ result, loading, error }: AnswerDisplayProps) {
                 </svg>
                 <span className="text-xs text-slate-500">{formatLatency(result.latencyMs)}</span>
               </div>
+
+              {/* Ask another question */}
+              {onAskAnother && (
+                <button
+                  type="button"
+                  onClick={onAskAnother}
+                  className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded px-2 py-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Ask another question
+                </button>
+              )}
             </div>
           </div>
         )}

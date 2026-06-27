@@ -1,26 +1,34 @@
-import { useState, useRef } from 'react';
-import { Card, CardHeader } from './ui/Card';
+import { useState, useRef, useEffect } from 'react';
+import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 
 const EXAMPLE_QUESTIONS = [
   'What are the main features described in the documentation?',
   'How do I authenticate with the API?',
-  'What error codes can the service return?',
   'Summarize the key configuration options',
 ];
 
 interface QueryInterfaceProps {
   loading: boolean;
   onSubmit: (question: string) => void;
+  /** Title of the document the user just ingested, shown as active context. */
+  activeDocTitle?: string;
+  /** Increment to programmatically focus the input (on reveal / "ask another"). */
+  focusSignal?: number;
 }
 
-export function QueryInterface({ loading, onSubmit }: QueryInterfaceProps) {
+export function QueryInterface({ loading, onSubmit, activeDocTitle, focusSignal }: QueryInterfaceProps) {
   const [question, setQuestion] = useState('');
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => {
+    if (focusSignal) textareaRef.current?.focus();
+  }, [focusSignal]);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return; // guard against duplicate submissions
     const trimmed = question.trim();
     if (!trimmed) {
       setError('Please enter a question');
@@ -46,18 +54,22 @@ export function QueryInterface({ loading, onSubmit }: QueryInterfaceProps) {
 
   return (
     <Card>
-      <CardHeader
-        title="Ask a Question"
-        description="Query your documents using natural language"
-        icon={
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-        }
-      />
+      <div className="flex items-start justify-between gap-4 px-6 pt-6">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">Ask a question</h2>
+          <p className="text-sm text-slate-500 mt-0.5">Answers are grounded in your ingested content.</p>
+        </div>
+        {activeDocTitle && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 max-w-[55%]">
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span className="truncate">{activeDocTitle}</span>
+          </span>
+        )}
+      </div>
 
-      <form onSubmit={handleSubmit} className="p-5 space-y-4">
-        {/* Question input */}
+      <form onSubmit={handleSubmit} className="p-6 space-y-4">
         <div>
           <label htmlFor="question-input" className="sr-only">Your question</label>
           <div className="relative">
@@ -67,7 +79,7 @@ export function QueryInterface({ loading, onSubmit }: QueryInterfaceProps) {
               value={question}
               onChange={(e) => { setQuestion(e.target.value); if (error) setError(null); }}
               onKeyDown={handleKeyDown}
-              placeholder="Ask anything about your documents… (Enter to submit, Shift+Enter for newline)"
+              placeholder="Ask anything about your document… (Enter to submit, Shift+Enter for newline)"
               rows={3}
               disabled={loading}
               aria-describedby={error ? 'question-error' : 'question-hint'}
@@ -80,7 +92,6 @@ export function QueryInterface({ loading, onSubmit }: QueryInterfaceProps) {
                 error ? 'border-red-400' : 'border-slate-200',
               ].join(' ')}
             />
-            {/* Inline submit icon */}
             <button
               type="submit"
               disabled={loading}
@@ -108,7 +119,6 @@ export function QueryInterface({ loading, onSubmit }: QueryInterfaceProps) {
           )}
         </div>
 
-        {/* Example questions */}
         <div>
           <p className="text-xs font-medium text-slate-500 mb-2">Try an example</p>
           <div className="flex flex-wrap gap-2">
