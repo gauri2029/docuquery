@@ -41,15 +41,13 @@ describe('QueryInterface', () => {
     expect(screen.getByRole('button', { name: /searching documents/i })).toBeTruthy();
   });
 
-  it('fills question when example is clicked', async () => {
+  it('populates the question from an Explore topic chip without submitting', async () => {
     render(<QueryInterface loading={false} onSubmit={onSubmit} />);
-    const exampleBtn = screen.getAllByRole('button').find((b) =>
-      b.textContent?.includes('How do I authenticate'),
-    );
-    expect(exampleBtn).toBeTruthy();
-    await userEvent.click(exampleBtn!);
+    await userEvent.click(screen.getByRole('button', { name: /features/i }));
     expect(screen.getByLabelText(/your question/i)).toHaveValue(
-      'How do I authenticate with the API?',
+      'What are the main features described in this document?',
     );
+    // Picking a topic must not submit the query.
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

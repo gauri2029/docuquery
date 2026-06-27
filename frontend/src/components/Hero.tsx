@@ -18,26 +18,25 @@ export function Hero() {
         }}
       />
 
-      <div className="relative grid md:grid-cols-[1.4fr_1fr] gap-8 items-center px-6 py-10 sm:px-10 sm:py-14">
+      <div className="relative flex items-center justify-between gap-6 px-6 py-6 sm:px-8">
         <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50/80 px-3 py-1 text-xs font-medium text-brand-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50/80 px-2.5 py-0.5 text-[11px] font-medium text-brand-700">
             <span className="w-1.5 h-1.5 rounded-full bg-brand-500" aria-hidden="true" />
             Retrieval-augmented Q&amp;A
           </span>
-          <h2 className="mt-4 text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+          <h2 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
             Turn documentation into{' '}
             <span className="bg-gradient-to-r from-brand-600 via-violet-600 to-pink-500 bg-clip-text text-transparent">
               answers.
             </span>
           </h2>
-          <p className="mt-3 max-w-xl text-base text-slate-600 leading-relaxed">
-            Add a technical document, ask questions in natural language, and receive
-            answers grounded in the source.
+          <p className="mt-1.5 max-w-xl text-sm text-slate-600 leading-relaxed">
+            Add a technical document, ask questions in natural language, and get answers grounded in the source.
           </p>
         </div>
 
         {/* Abstract document + search graphic */}
-        <div className="hidden md:flex justify-center">
+        <div className="hidden lg:flex shrink-0 justify-center">
           <AbstractGraphic />
         </div>
       </div>
@@ -47,7 +46,7 @@ export function Hero() {
 
 function AbstractGraphic() {
   return (
-    <svg width="220" height="180" viewBox="0 0 220 180" fill="none" aria-hidden="true" className="drop-shadow-sm">
+    <svg width="150" height="120" viewBox="0 0 220 180" fill="none" aria-hidden="true" className="drop-shadow-sm">
       <defs>
         <linearGradient id="dq-doc" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#ffffff" />

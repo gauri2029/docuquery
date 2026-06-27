@@ -36,13 +36,14 @@ async function ingestDocument(title = 'AtlasFlow README') {
 describe('App workflow', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('locks the Ask mode on first load', () => {
+  it('shows the add-document step and a muted ask placeholder on first load', () => {
     render(<App />);
-    expect(screen.getByRole('tab', { name: /ask questions/i })).toBeDisabled();
+    expect(screen.getByLabelText(/document title/i)).toBeTruthy();
+    expect(screen.getByText(/add a document to begin/i)).toBeTruthy();
     expect(screen.queryByLabelText(/your question/i)).toBeNull();
   });
 
-  it('reveals the query workspace after a successful ingestion', async () => {
+  it('reveals the query workspace and active document after ingestion', async () => {
     render(<App />);
     await ingestDocument();
 
@@ -50,23 +51,15 @@ describe('App workflow', () => {
       expect(screen.getByText(/AtlasFlow README is ready/i)).toBeTruthy();
     });
     expect(screen.getByLabelText(/your question/i)).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /ask questions/i })).not.toBeDisabled();
   });
 
-  it('lets the user switch back to Ask after choosing Add document (no re-lock)', async () => {
+  it('keeps the ingestion panel available after ingestion (no lock-out)', async () => {
     render(<App />);
     await ingestDocument();
     await waitFor(() => screen.getByLabelText(/your question/i));
 
-    // Go to upload mode...
-    await userEvent.click(screen.getByRole('tab', { name: /add document/i }));
+    // Both steps remain on screen — the user can add another document or ask.
     expect(screen.getByLabelText(/document title/i)).toBeTruthy();
-    expect(screen.queryByLabelText(/your question/i)).toBeNull();
-
-    // ...then change mind and return to Ask — it must NOT be locked.
-    const askTab = screen.getByRole('tab', { name: /ask questions/i });
-    expect(askTab).not.toBeDisabled();
-    await userEvent.click(askTab);
     expect(screen.getByLabelText(/your question/i)).toBeTruthy();
   });
 });

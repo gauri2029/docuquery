@@ -38,6 +38,27 @@
   }
 
   .answer-prose code {
-    @apply font-mono text-sm bg-slate-100 rounded px-1 py-0.5;
+    @apply font-mono text-[13px] bg-slate-100 text-slate-700 rounded px-1 py-0.5;
+  }
+
+  .answer-prose .md-pre {
+    @apply font-mono text-[12px] bg-slate-900 text-slate-100 rounded-xl p-3 my-3 overflow-x-auto;
+  }
+
+  .answer-prose .md-pre code {
+    @apply bg-transparent text-slate-100 p-0;
+  }
+
+  .citation-chip {
+    @apply inline-flex items-center gap-1 align-baseline rounded-md border border-brand-200 bg-brand-50 px-1.5 py-0.5 mx-0.5 text-[11px] font-medium text-brand-700;
+  }
+
+  @keyframes chipIn {
+    from { opacity: 0; transform: translateY(6px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .chip-in {
+    animation: chipIn 0.32s ease-out both;
   }
 }

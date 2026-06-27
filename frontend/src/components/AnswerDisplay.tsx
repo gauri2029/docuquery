@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { QueryResult } from '../types';
 import { Card, CardHeader } from './ui/Card';
 import { Spinner } from './ui/Spinner';
+import { Markdown } from './Markdown';
 
 interface AnswerDisplayProps {
   result: QueryResult | null;
@@ -129,55 +130,43 @@ export function AnswerDisplay({ result, loading, error, onAskAnother }: AnswerDi
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </div>
-              <div className="flex-1 min-w-0">
-                <div
-                  className="text-sm text-slate-800 leading-relaxed answer-prose whitespace-pre-wrap"
-                  aria-label="Generated answer"
-                >
-                  {result.response.answer}
-                </div>
+              <div className="flex-1 min-w-0" aria-label="Generated answer">
+                <Markdown content={result.response.answer} />
               </div>
             </div>
 
-            {/* Footer: sources + latency */}
-            <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
-              {/* Sources badge */}
+            {/* Compact metadata row: sources · latency · ask another */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 pt-3 border-t border-slate-100 text-xs">
               {result.response.sourcesUsed > 0 ? (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-brand-50 border border-brand-100 rounded-full">
+                <span className="inline-flex items-center gap-1.5 font-medium text-brand-700">
                   <svg className="w-3.5 h-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <span className="text-xs font-medium text-brand-700">
-                    {result.response.sourcesUsed} source chunk{result.response.sourcesUsed !== 1 ? 's' : ''} used
-                  </span>
-                </div>
+                  {result.response.sourcesUsed} source chunk{result.response.sourcesUsed !== 1 ? 's' : ''} used
+                </span>
               ) : (
-                <div
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-100 rounded-full"
-                  role="note"
-                  aria-label="No relevant context found"
-                >
+                <span className="inline-flex items-center gap-1.5 font-medium text-amber-700" role="note" aria-label="No relevant context found">
                   <svg className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                  <span className="text-xs font-medium text-amber-700">No relevant context found</span>
-                </div>
+                  No relevant context found
+                </span>
               )}
 
-              {/* Latency badge */}
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-full">
+              <span className="text-slate-300" aria-hidden="true">·</span>
+
+              <span className="inline-flex items-center gap-1.5 text-slate-500">
                 <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="text-xs text-slate-500">{formatLatency(result.latencyMs)}</span>
-              </div>
+                {formatLatency(result.latencyMs)}
+              </span>
 
-              {/* Ask another question */}
               {onAskAnother && (
                 <button
                   type="button"
                   onClick={onAskAnother}
-                  className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded px-2 py-1"
+                  className="ml-auto inline-flex items-center gap-1.5 font-medium text-brand-600 hover:text-brand-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded px-2 py-1"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
