@@ -20,6 +20,8 @@ public class VectorStoreService {
     public VectorStoreService(@Value("${chromadb.url}") String chromaUrl) {
         this.webClient = WebClient.builder()
                 .baseUrl(chromaUrl)
+                // Query results for large collections can exceed the default 256 KB buffer.
+                .codecs(c -> c.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
                 .build();
     }
 

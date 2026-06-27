@@ -19,6 +19,9 @@ public class EmbeddingService {
         this.webClient = WebClient.builder()
                 .baseUrl("https://api.openai.com/v1")
                 .defaultHeader("Authorization", "Bearer " + apiKey)
+                // Embedding responses for large documents exceed the default 256 KB
+                // buffer (one ~30 KB vector per chunk), so raise the in-memory limit.
+                .codecs(c -> c.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
                 .build();
     }
 

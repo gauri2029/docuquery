@@ -96,5 +96,6 @@ src/
 |---|---|---|
 | Status badge shows "Backend offline" | Spring Boot not running | `docker compose up` |
 | Ingestion returns 500 | OpenAI API key missing | Set `OPENAI_API_KEY` env var for Docker Compose |
+| Ingestion 500 on a very large document | Embedding response exceeds backend buffer | Fixed: backend WebClient buffer raised to 16 MB. Extremely large docs may still need splitting. |
 | `npm run dev` fails | Node version too old | Upgrade to Node ≥ 20 |
 | Tests fail with "matchers" import error | Jest-dom version mismatch | `npm install` to sync lockfile |
