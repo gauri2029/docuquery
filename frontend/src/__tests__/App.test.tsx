@@ -36,10 +36,9 @@ async function ingestDocument(title = 'AtlasFlow README') {
 describe('App workflow', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('starts with the query step locked', () => {
+  it('locks the Ask mode on first load', () => {
     render(<App />);
-    expect(screen.getByText(/ingest a document to start asking questions/i)).toBeTruthy();
-    // The question input is not present until a document is ingested.
+    expect(screen.getByRole('tab', { name: /ask questions/i })).toBeDisabled();
     expect(screen.queryByLabelText(/your question/i)).toBeNull();
   });
 
@@ -50,19 +49,24 @@ describe('App workflow', () => {
     await waitFor(() => {
       expect(screen.getByText(/AtlasFlow README is ready/i)).toBeTruthy();
     });
-    // Query input is now available and the locked message is gone.
     expect(screen.getByLabelText(/your question/i)).toBeTruthy();
-    expect(screen.queryByText(/ingest a document to start asking questions/i)).toBeNull();
+    expect(screen.getByRole('tab', { name: /ask questions/i })).not.toBeDisabled();
   });
 
-  it('returns to the locked state when starting over', async () => {
+  it('lets the user switch back to Ask after choosing Add document (no re-lock)', async () => {
     render(<App />);
     await ingestDocument();
     await waitFor(() => screen.getByLabelText(/your question/i));
 
-    await userEvent.click(screen.getByRole('button', { name: /use another document/i }));
-
-    expect(screen.getByText(/ingest a document to start asking questions/i)).toBeTruthy();
+    // Go to upload mode...
+    await userEvent.click(screen.getByRole('tab', { name: /add document/i }));
+    expect(screen.getByLabelText(/document title/i)).toBeTruthy();
     expect(screen.queryByLabelText(/your question/i)).toBeNull();
+
+    // ...then change mind and return to Ask — it must NOT be locked.
+    const askTab = screen.getByRole('tab', { name: /ask questions/i });
+    expect(askTab).not.toBeDisabled();
+    await userEvent.click(askTab);
+    expect(screen.getByLabelText(/your question/i)).toBeTruthy();
   });
 });

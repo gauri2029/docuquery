@@ -25,7 +25,10 @@ export function Hero() {
             Retrieval-augmented Q&amp;A
           </span>
           <h2 className="mt-4 text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
-            Turn documentation into answers.
+            Turn documentation into{' '}
+            <span className="bg-gradient-to-r from-brand-600 via-violet-600 to-pink-500 bg-clip-text text-transparent">
+              answers.
+            </span>
           </h2>
           <p className="mt-3 max-w-xl text-base text-slate-600 leading-relaxed">
             Add a technical document, ask questions in natural language, and receive
