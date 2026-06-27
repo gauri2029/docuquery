@@ -31,10 +31,17 @@ public class ChunkingService {
                 }
             }
 
-            chunks.add(text.substring(start, end).trim());
-            start = end - OVERLAP;
-            if (start < 0) start = 0;
+            String chunk = text.substring(start, end).trim();
+            if (!chunk.isEmpty()) chunks.add(chunk);  // skip blank chunks (rejected by the vector store)
+
             if (end == text.length()) break;
+
+            // Advance with overlap, but never regress or stall: when a paragraph/
+            // sentence boundary lands within OVERLAP of start, end - OVERLAP would be
+            // <= start, causing an infinite loop. Fall back to end to guarantee progress.
+            int nextStart = end - OVERLAP;
+            if (nextStart <= start) nextStart = end;
+            start = nextStart;
         }
         return chunks;
     }
