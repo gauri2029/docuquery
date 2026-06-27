@@ -1,30 +1,84 @@
-import { useState, useCallback, useRef } from 'react';
-import type { QueryResult } from './types';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import type { DocumentRecord, IngestResponse, QueryResult } from './types';
 import { docuqueryApi, ApiError } from './api/docuquery';
-import { useHealth } from './hooks/useHealth';
-import { useDocuments } from './hooks/useDocuments';
 import { Header } from './components/Header';
+import { Hero } from './components/Hero';
 import { IngestPanel } from './components/IngestPanel';
-import { DocumentList } from './components/DocumentList';
 import { QueryInterface } from './components/QueryInterface';
 import { AnswerDisplay } from './components/AnswerDisplay';
-import type { IngestResponse } from './types';
+import { DocumentScope, type ScopeOption } from './components/DocumentScope';
+
+function StepLabel({ n, title, active }: { n: number; title: string; active: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5 mb-3">
+      <span
+        className={[
+          'flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors',
+          active ? 'bg-gradient-to-br from-brand-600 to-violet-600 text-white shadow-sm' : 'bg-slate-200 text-slate-500',
+        ].join(' ')}
+      >
+        {n}
+      </span>
+      <h2 className={['text-sm font-semibold tracking-tight', active ? 'text-slate-900' : 'text-slate-400'].join(' ')}>
+        {title}
+      </h2>
+    </div>
+  );
+}
 
 export default function App() {
-  const { status, detail } = useHealth();
-  const { documents, loading: docsLoading, error: docsError, refresh, remove } = useDocuments();
+  const [activeDoc, setActiveDoc] = useState<IngestResponse | null>(null);
+  const [focusSignal, setFocusSignal] = useState(0);
+
+  // Known documents + the sticky scope the user is asking against.
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [scopeId, setScopeId] = useState<number | 'all'>('all');
 
   const [queryLoading, setQueryLoading] = useState(false);
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
   const queryAbortRef = useRef<AbortController | null>(null);
+  const askSectionRef = useRef<HTMLDivElement>(null);
 
-  const handleIngestSuccess = useCallback(
-    (_result: IngestResponse) => {
-      void refresh();
-    },
-    [refresh],
-  );
+  const hasIngested = activeDoc !== null;
+
+  const loadDocuments = useCallback(async () => {
+    try {
+      setDocuments(await docuqueryApi.listDocuments());
+    } catch {
+      // Non-critical: the scope picker simply falls back to the active document.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDocuments();
+  }, [loadDocuments]);
+
+  // Merge fetched documents with the just-ingested one (dedupe by id).
+  const scopeOptions: ScopeOption[] = (() => {
+    const map = new Map<number, string>();
+    documents.forEach((d) => map.set(d.id, d.title));
+    if (activeDoc) map.set(activeDoc.documentId, activeDoc.title);
+    return Array.from(map, ([id, title]) => ({ id, title }));
+  })();
+
+  const scopedTitle =
+    scopeId === 'all' ? 'All documents' : scopeOptions.find((o) => o.id === scopeId)?.title;
+
+  // Reveal: after ingestion, bring the query section into view and focus it.
+  useEffect(() => {
+    if (!activeDoc) return;
+    askSectionRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+    setFocusSignal((n) => n + 1);
+  }, [activeDoc]);
+
+  const handleIngestSuccess = useCallback((result: IngestResponse) => {
+    setQueryResult(null);
+    setQueryError(null);
+    setActiveDoc(result);
+    setScopeId(result.documentId); // ask against the document you just added
+    void loadDocuments();
+  }, [loadDocuments]);
 
   const handleQuery = useCallback(async (question: string) => {
     queryAbortRef.current?.abort();
@@ -36,7 +90,8 @@ export default function App() {
 
     const start = Date.now();
     try {
-      const response = await docuqueryApi.query({ question }, queryAbortRef.current.signal);
+      const body = scopeId === 'all' ? { question } : { question, documentId: String(scopeId) };
+      const response = await docuqueryApi.query(body, queryAbortRef.current.signal);
       setQueryResult({ response, latencyMs: Date.now() - start });
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
@@ -46,62 +101,91 @@ export default function App() {
     } finally {
       setQueryLoading(false);
     }
+  }, [scopeId]);
+
+  const handleAskAnother = useCallback(() => {
+    setQueryResult(null);
+    setQueryError(null);
+    setFocusSignal((n) => n + 1);
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      <Header status={status} detail={detail} />
+    <div className="relative min-h-screen flex flex-col overflow-hidden bg-gradient-to-b from-slate-50 via-white to-brand-50/40">
+      {/* Soft decorative background blobs */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-brand-300/20 blur-3xl" />
+        <div className="absolute top-40 -right-24 w-96 h-96 rounded-full bg-violet-300/20 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 w-80 h-80 rounded-full bg-pink-200/20 blur-3xl" />
+      </div>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
-        {/* Backend offline warning */}
-        {status === 'offline' && (
-          <div
-            role="alert"
-            className="mb-6 flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl animate-fade-in"
-          >
-            <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <div>
-              <p className="text-sm font-semibold text-amber-800">Backend unreachable</p>
-              <p className="text-sm text-amber-700 mt-0.5">
-                Make sure the DocuQuery Spring Boot API is running on{' '}
-                <code className="font-mono text-xs bg-amber-100 rounded px-1 py-0.5">localhost:8080</code>.
-                Run <code className="font-mono text-xs bg-amber-100 rounded px-1 py-0.5">docker compose up</code> to start all services.
-              </p>
-            </div>
-          </div>
-        )}
+      <Header />
 
-        <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start">
-          {/* Left column: ingestion + document library */}
-          <div className="space-y-6">
+      <main className="relative flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+        <Hero />
+
+        <div className="grid lg:grid-cols-2 gap-5 items-start">
+          {/* Step 1 — Add document */}
+          <section>
+            <StepLabel n={1} title="Add document" active={!hasIngested} />
             <IngestPanel onSuccess={handleIngestSuccess} />
-            <DocumentList
-              documents={documents}
-              loading={docsLoading}
-              error={docsError}
-              onDelete={remove}
-              onRefresh={refresh}
-            />
-          </div>
+          </section>
 
-          {/* Right column: query + answer */}
-          <div className="space-y-6">
-            <QueryInterface loading={queryLoading} onSubmit={handleQuery} />
-            <AnswerDisplay
-              result={queryResult}
-              loading={queryLoading}
-              error={queryError}
-            />
-          </div>
+          {/* Step 2 — Ask questions */}
+          <section ref={askSectionRef} className="scroll-mt-24">
+            <StepLabel n={2} title="Ask questions" active={hasIngested} />
+            {hasIngested ? (
+              <div className="space-y-5 animate-slide-up">
+                {scopeOptions.length > 1 && (
+                  <DocumentScope options={scopeOptions} value={scopeId} onChange={setScopeId} />
+                )}
+                {activeDoc && !queryResult && !queryError && !queryLoading && (
+                  <div
+                    role="status"
+                    className="flex items-start gap-3 p-3.5 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50"
+                  >
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                    <p className="text-sm font-semibold text-emerald-900">
+                      {activeDoc.title} is ready — ask your first question.
+                    </p>
+                  </div>
+                )}
+                <QueryInterface
+                  loading={queryLoading}
+                  onSubmit={handleQuery}
+                  activeDocTitle={scopedTitle}
+                  focusSignal={focusSignal}
+                />
+                <AnswerDisplay
+                  result={queryResult}
+                  loading={queryLoading}
+                  error={queryError}
+                  onAskAnother={handleAskAnother}
+                />
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-14 text-center">
+                <div className="w-12 h-12 mx-auto rounded-2xl bg-white border border-slate-200 flex items-center justify-center mb-4 shadow-sm">
+                  <svg className="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-slate-500">Add a document to begin</p>
+                <p className="text-sm text-slate-400 mt-1">
+                  Once ingested, ask questions and explore topics here.
+                </p>
+              </div>
+            )}
+          </section>
         </div>
       </main>
 
-      <footer className="border-t border-slate-200 bg-white py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs text-slate-400">
-          <span>DocuQuery · RAG-powered document intelligence</span>
-          <span>Spring Boot · ChromaDB · OpenAI · PostgreSQL</span>
+      <footer className="relative border-t border-slate-200/70 bg-white/60 backdrop-blur py-4 mt-2">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-400">
+          DocuQuery · source-grounded answers from your documentation
         </div>
       </footer>
     </div>

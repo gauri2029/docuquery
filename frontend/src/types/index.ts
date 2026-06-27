@@ -25,6 +25,8 @@ export interface DocumentRecord {
 
 export interface QueryRequest {
   question: string;
+  /** Optional: scope retrieval to a single document. Omit to search all. */
+  documentId?: string;
 }
 
 export interface QueryResponse {

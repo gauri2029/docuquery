@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import type { IngestResponse } from '../types';
 import { docuqueryApi, ApiError } from '../api/docuquery';
-import { Card, CardHeader } from './ui/Card';
+import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 
 interface IngestPanelProps {
@@ -11,6 +11,14 @@ interface IngestPanelProps {
 interface FormErrors {
   title?: string;
   content?: string;
+}
+
+type Mode = 'upload' | 'paste';
+
+interface FileMeta {
+  name: string;
+  size: number;
+  type: string;
 }
 
 // The backend only accepts text content ({ title, content }). We therefore read
@@ -32,6 +40,17 @@ function titleFromFilename(name: string): string {
   return dot > 0 ? name.slice(0, dot) : name;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function fileExtensionLabel(name: string): string {
+  const dot = name.lastIndexOf('.');
+  return dot >= 0 ? name.slice(dot + 1).toUpperCase() : 'TEXT';
+}
+
 function validate(title: string, content: string): FormErrors {
   const errors: FormErrors = {};
   if (!title.trim()) errors.title = 'Title is required';
@@ -41,21 +60,19 @@ function validate(title: string, content: string): FormErrors {
 }
 
 export function IngestPanel({ onSuccess }: IngestPanelProps) {
+  const [mode, setMode] = useState<Mode>('upload');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<IngestResponse | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileMeta, setFileMeta] = useState<FileMeta | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Read a user-selected file in the browser and populate the form fields.
   function handleFile(file: File) {
     setApiError(null);
-    setLastResult(null);
 
     if (!hasAcceptedExtension(file.name) && !file.type.startsWith('text/')) {
       setApiError(`Unsupported file type. Accepted: ${ACCEPTED_EXTENSIONS.join(', ')}`);
@@ -71,7 +88,7 @@ export function IngestPanel({ onSuccess }: IngestPanelProps) {
     reader.onload = () => {
       const text = typeof reader.result === 'string' ? reader.result : '';
       setContent(text);
-      setFileName(file.name);
+      setFileMeta({ name: file.name, size: file.size, type: file.type || fileExtensionLabel(file.name) });
       // Only auto-fill the title if the user hasn't typed one.
       setTitle((prev) => (prev.trim() ? prev : titleFromFilename(file.name)));
       setErrors({});
@@ -94,12 +111,20 @@ export function IngestPanel({ onSuccess }: IngestPanelProps) {
   }
 
   function clearFile() {
-    setFileName(null);
+    setFileMeta(null);
     setContent('');
+  }
+
+  function switchMode(next: Mode) {
+    if (next === mode) return;
+    setMode(next);
+    setErrors({});
+    setApiError(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return; // guard against duplicate submissions
     const formErrors = validate(title, content);
     setErrors(formErrors);
     if (Object.keys(formErrors).length > 0) return;
@@ -109,18 +134,17 @@ export function IngestPanel({ onSuccess }: IngestPanelProps) {
 
     setLoading(true);
     setApiError(null);
-    setLastResult(null);
 
     try {
       const result = await docuqueryApi.ingest(
         { title: title.trim(), content: content.trim() },
         abortRef.current.signal,
       );
-      setLastResult(result);
       onSuccess(result);
+      // Reset local form; the parent drives the transition to step 2.
       setTitle('');
       setContent('');
-      setFileName(null);
+      setFileMeta(null);
       setErrors({});
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
@@ -131,39 +155,16 @@ export function IngestPanel({ onSuccess }: IngestPanelProps) {
   }
 
   return (
-    <Card>
-      <CardHeader
-        title="Add Document"
-        description="Upload a text/Markdown file or paste content to embed"
-        icon={
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-        }
-      />
+    <Card className="overflow-hidden">
+      <div className="px-6 pt-6">
+        <h2 className="text-base font-semibold text-slate-900">Add a document</h2>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Upload a text or Markdown file, or paste content directly.
+        </p>
+      </div>
 
-      <form onSubmit={handleSubmit} noValidate className="p-5 space-y-4">
-        {/* Success banner */}
-        {lastResult && (
-          <div
-            role="alert"
-            className="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl animate-fade-in"
-          >
-            <svg className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            <div>
-              <p className="text-sm font-medium text-emerald-800">
-                "{lastResult.title}" ingested
-              </p>
-              <p className="text-xs text-emerald-600 mt-0.5">
-                {lastResult.chunksCreated} chunk{lastResult.chunksCreated !== 1 ? 's' : ''} created · ID #{lastResult.documentId}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* API error banner */}
+      <form onSubmit={handleSubmit} noValidate className="p-6 space-y-5">
+        {/* API error banner — only shown when a request actually fails */}
         {apiError && (
           <div role="alert" className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl animate-fade-in">
             <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
@@ -172,65 +173,6 @@ export function IngestPanel({ onSuccess }: IngestPanelProps) {
             <p className="text-sm text-red-700">{apiError}</p>
           </div>
         )}
-
-        {/* File upload drop zone */}
-        <div
-          onDragOver={(e) => { e.preventDefault(); if (!loading) setDragActive(true); }}
-          onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
-          onDrop={onDrop}
-          className={[
-            'rounded-xl border-2 border-dashed transition-colors',
-            dragActive ? 'border-brand-500 bg-brand-50' : 'border-slate-200 bg-slate-50/50',
-            loading ? 'opacity-60' : '',
-          ].join(' ')}
-        >
-          <input
-            ref={fileInputRef}
-            id="doc-file"
-            type="file"
-            accept={ACCEPTED_ATTR}
-            onChange={onFileInputChange}
-            disabled={loading}
-            className="sr-only"
-          />
-          {fileName ? (
-            <div className="flex items-center justify-between gap-3 p-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <svg className="w-4 h-4 text-brand-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span className="text-sm text-slate-700 truncate">{fileName}</span>
-              </div>
-              <button
-                type="button"
-                onClick={clearFile}
-                disabled={loading}
-                className="text-xs text-slate-500 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded px-1.5 py-0.5 shrink-0"
-              >
-                Remove
-              </button>
-            </div>
-          ) : (
-            <label
-              htmlFor="doc-file"
-              className="flex flex-col items-center justify-center gap-1.5 p-5 cursor-pointer text-center"
-            >
-              <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <span className="text-sm text-slate-600">
-                <span className="font-medium text-brand-600">Choose a file</span> or drag &amp; drop
-              </span>
-              <span className="text-xs text-slate-400">{ACCEPTED_EXTENSIONS.join(', ')} · max 5 MB</span>
-            </label>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3" aria-hidden="true">
-          <span className="h-px flex-1 bg-slate-100" />
-          <span className="text-xs text-slate-400">or paste manually</span>
-          <span className="h-px flex-1 bg-slate-100" />
-        </div>
 
         {/* Title */}
         <div>
@@ -242,12 +184,12 @@ export function IngestPanel({ onSuccess }: IngestPanelProps) {
             type="text"
             value={title}
             onChange={(e) => { setTitle(e.target.value); setErrors((prev) => ({ ...prev, title: undefined })); }}
-            placeholder="e.g. API Reference v2"
+            placeholder="e.g. AtlasFlow README"
             disabled={loading}
             aria-describedby={errors.title ? 'title-error' : undefined}
             aria-invalid={!!errors.title}
             className={[
-              'w-full px-3 py-2 text-sm rounded-xl border bg-white transition-colors',
+              'w-full px-3.5 py-2.5 text-sm rounded-xl border bg-white transition-colors',
               'placeholder:text-slate-400 text-slate-900',
               'focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent',
               'disabled:bg-slate-50 disabled:text-slate-400',
@@ -259,41 +201,140 @@ export function IngestPanel({ onSuccess }: IngestPanelProps) {
           )}
         </div>
 
-        {/* Content */}
-        <div>
-          <label htmlFor="doc-content" className="block text-xs font-medium text-slate-700 mb-1.5">
-            Content <span className="text-red-500" aria-hidden="true">*</span>
-          </label>
-          <textarea
-            id="doc-content"
-            value={content}
-            onChange={(e) => { setContent(e.target.value); setErrors((prev) => ({ ...prev, content: undefined })); }}
-            placeholder="Paste plain text or Markdown…"
-            rows={6}
-            disabled={loading}
-            aria-describedby={errors.content ? 'content-error' : undefined}
-            aria-invalid={!!errors.content}
-            className={[
-              'w-full px-3 py-2 text-sm rounded-xl border bg-white transition-colors resize-y',
-              'placeholder:text-slate-400 text-slate-900 font-mono leading-relaxed',
-              'focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent',
-              'disabled:bg-slate-50 disabled:text-slate-400',
-              errors.content ? 'border-red-400' : 'border-slate-200',
-            ].join(' ')}
-          />
-          <div className="flex items-center justify-between mt-1">
-            {errors.content ? (
-              <p id="content-error" role="alert" className="text-xs text-red-600">{errors.content}</p>
-            ) : (
-              <span />
-            )}
-            <span className="text-xs text-slate-400">{content.length.toLocaleString()} chars</span>
-          </div>
+        {/* Source tabs */}
+        <div className="inline-flex rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Document source">
+          {(['upload', 'paste'] as Mode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={mode === m}
+              onClick={() => switchMode(m)}
+              disabled={loading}
+              className={[
+                'px-4 py-1.5 text-sm font-medium rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
+                mode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700',
+              ].join(' ')}
+            >
+              {m === 'upload' ? 'Upload file' : 'Paste text'}
+            </button>
+          ))}
         </div>
+
+        {/* Upload mode */}
+        {mode === 'upload' && (
+          <div role="tabpanel">
+            <div
+              onDragOver={(e) => { e.preventDefault(); if (!loading) setDragActive(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
+              onDrop={onDrop}
+              className={[
+                'rounded-xl border-2 border-dashed transition-colors',
+                dragActive ? 'border-brand-500 bg-brand-50' : 'border-slate-200 bg-slate-50/50',
+                loading ? 'opacity-60' : '',
+              ].join(' ')}
+            >
+              <input
+                id="doc-file"
+                type="file"
+                accept={ACCEPTED_ATTR}
+                onChange={onFileInputChange}
+                disabled={loading}
+                className="sr-only"
+              />
+              {fileMeta ? (
+                <div className="flex items-center justify-between gap-3 p-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">{fileMeta.name}</p>
+                      <p className="text-xs text-slate-400">
+                        {fileExtensionLabel(fileMeta.name)} · {formatBytes(fileMeta.size)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <label
+                      htmlFor="doc-file"
+                      className="text-xs text-slate-500 hover:text-brand-700 cursor-pointer rounded px-2 py-1 focus-within:ring-2 focus-within:ring-brand-500"
+                    >
+                      Replace
+                    </label>
+                    <button
+                      type="button"
+                      onClick={clearFile}
+                      disabled={loading}
+                      className="text-xs text-slate-500 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded px-2 py-1"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label
+                  htmlFor="doc-file"
+                  className="flex flex-col items-center justify-center gap-1.5 p-7 cursor-pointer text-center"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center mb-1 shadow-sm">
+                    <svg className="w-5 h-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </div>
+                  <span className="text-sm text-slate-600">
+                    <span className="font-medium text-brand-600">Choose a file</span> or drag &amp; drop
+                  </span>
+                  <span className="text-xs text-slate-400">{ACCEPTED_EXTENSIONS.join(', ')} · max 5 MB</span>
+                </label>
+              )}
+            </div>
+            {errors.content && !fileMeta && (
+              <p role="alert" className="mt-1.5 text-xs text-red-600">Select a file or switch to “Paste text”.</p>
+            )}
+          </div>
+        )}
+
+        {/* Paste mode */}
+        {mode === 'paste' && (
+          <div role="tabpanel">
+            <label htmlFor="doc-content" className="block text-xs font-medium text-slate-700 mb-1.5">
+              Content <span className="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <textarea
+              id="doc-content"
+              value={content}
+              onChange={(e) => { setContent(e.target.value); setErrors((prev) => ({ ...prev, content: undefined })); }}
+              placeholder="Paste plain text or Markdown…"
+              rows={7}
+              disabled={loading}
+              aria-describedby={errors.content ? 'content-error' : undefined}
+              aria-invalid={!!errors.content}
+              className={[
+                'w-full px-3.5 py-2.5 text-sm rounded-xl border bg-white transition-colors resize-y',
+                'placeholder:text-slate-400 text-slate-900 font-mono leading-relaxed',
+                'focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent',
+                'disabled:bg-slate-50 disabled:text-slate-400',
+                errors.content ? 'border-red-400' : 'border-slate-200',
+              ].join(' ')}
+            />
+            <div className="flex items-center justify-between mt-1">
+              {errors.content ? (
+                <p id="content-error" role="alert" className="text-xs text-red-600">{errors.content}</p>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-slate-400">{content.length.toLocaleString()} chars</span>
+            </div>
+          </div>
+        )}
 
         <Button
           type="submit"
           loading={loading}
+          size="lg"
           className="w-full"
           aria-label={loading ? 'Ingesting document…' : 'Ingest document'}
         >

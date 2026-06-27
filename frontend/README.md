@@ -4,12 +4,12 @@ A React + TypeScript + Vite + Tailwind CSS UI for the DocuQuery RAG backend.
 
 ## Overview
 
-The frontend connects to the existing Spring Boot API at `localhost:8080` (via a Vite dev proxy to avoid CORS issues). It provides:
+The frontend connects to the existing Spring Boot API at `localhost:8080` (via a Vite dev proxy to avoid CORS issues). It presents a focused **two-step workflow**:
 
-- **Document ingestion** — upload a text/Markdown file (or paste text), give it a title, embed it into the knowledge base. Files are read in the browser and sent as text to the existing `{ title, content }` endpoint — no backend change. Supported: `.txt, .md, .markdown, .csv, .json, .log, .rst, .html` (max 5 MB). Binary formats (PDF, DOCX) are not supported.
-- **Natural-language querying** — ask questions, see AI-generated answers with source-chunk counts
-- **Document library** — view and delete ingested documents
-- **Live backend status** — polls `/api/v1/health` every 30 seconds
+1. **Add a document** — upload a text/Markdown file (file picker or drag-and-drop) or paste content via polished tabs, give it a title, and ingest it. Files are read in the browser and sent as text to the existing `{ title, content }` endpoint — no backend change. Supported: `.txt, .md, .markdown, .csv, .json, .log, .rst, .html` (max 5 MB). Binary formats (PDF, DOCX) are not supported.
+2. **Ask questions** — the query workspace stays locked until a document is ingested, then reveals automatically (scroll + focus). Ask natural-language questions and see AI-generated answers with source-chunk counts, query latency, a copy action, and an "ask another question" flow.
+
+A two-step progress indicator shows the current/completed step, and **Use another document** resets the session view (frontend state only — it does not delete anything on the server). Connection errors are surfaced only when an actual request fails.
 
 ## Prerequisites
 
