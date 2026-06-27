@@ -6,7 +6,7 @@ A React + TypeScript + Vite + Tailwind CSS UI for the DocuQuery RAG backend.
 
 The frontend connects to the existing Spring Boot API at `localhost:8080` (via a Vite dev proxy to avoid CORS issues). It provides:
 
-- **Document ingestion** — paste text, give it a title, embed it into the knowledge base
+- **Document ingestion** — upload a text/Markdown file (or paste text), give it a title, embed it into the knowledge base. Files are read in the browser and sent as text to the existing `{ title, content }` endpoint — no backend change. Supported: `.txt, .md, .markdown, .csv, .json, .log, .rst, .html` (max 5 MB). Binary formats (PDF, DOCX) are not supported.
 - **Natural-language querying** — ask questions, see AI-generated answers with source-chunk counts
 - **Document library** — view and delete ingested documents
 - **Live backend status** — polls `/api/v1/health` every 30 seconds
