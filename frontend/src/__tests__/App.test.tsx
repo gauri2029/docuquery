@@ -7,6 +7,7 @@ vi.mock('../api/docuquery', () => ({
   docuqueryApi: {
     ingest: vi.fn(),
     query: vi.fn(),
+    listDocuments: vi.fn().mockResolvedValue([]),
   },
   ApiError: class ApiError extends Error {
     status: number;
@@ -21,6 +22,7 @@ vi.mock('../api/docuquery', () => ({
 import { docuqueryApi } from '../api/docuquery';
 
 const mockIngest = vi.mocked(docuqueryApi.ingest);
+const mockQuery = vi.mocked(docuqueryApi.query);
 
 async function ingestDocument(title = 'AtlasFlow README') {
   mockIngest.mockResolvedValueOnce({ documentId: 1, title, chunksCreated: 5 });
@@ -61,5 +63,22 @@ describe('App workflow', () => {
     // Both steps remain on screen — the user can add another document or ask.
     expect(screen.getByLabelText(/document title/i)).toBeTruthy();
     expect(screen.getByLabelText(/your question/i)).toBeTruthy();
+  });
+
+  it('scopes the query to the active document after ingestion', async () => {
+    mockQuery.mockResolvedValueOnce({ answer: 'Async indexing.', sourcesUsed: 2, question: 'How?' });
+    render(<App />);
+    await ingestDocument();
+    await waitFor(() => screen.getByLabelText(/your question/i));
+
+    await userEvent.type(screen.getByLabelText(/your question/i), 'How does indexing work?');
+    await userEvent.click(screen.getByRole('button', { name: /ask docuquery/i }));
+
+    await waitFor(() => {
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ documentId: '1' }),
+        expect.anything(),
+      );
+    });
   });
 });

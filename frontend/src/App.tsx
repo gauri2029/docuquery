@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { IngestResponse, QueryResult } from './types';
+import type { DocumentRecord, IngestResponse, QueryResult } from './types';
 import { docuqueryApi, ApiError } from './api/docuquery';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { IngestPanel } from './components/IngestPanel';
 import { QueryInterface } from './components/QueryInterface';
 import { AnswerDisplay } from './components/AnswerDisplay';
+import { DocumentScope, type ScopeOption } from './components/DocumentScope';
 
 function StepLabel({ n, title, active }: { n: number; title: string; active: boolean }) {
   return (
@@ -29,6 +30,10 @@ export default function App() {
   const [activeDoc, setActiveDoc] = useState<IngestResponse | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
 
+  // Known documents + the sticky scope the user is asking against.
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [scopeId, setScopeId] = useState<number | 'all'>('all');
+
   const [queryLoading, setQueryLoading] = useState(false);
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
@@ -36,6 +41,29 @@ export default function App() {
   const askSectionRef = useRef<HTMLDivElement>(null);
 
   const hasIngested = activeDoc !== null;
+
+  const loadDocuments = useCallback(async () => {
+    try {
+      setDocuments(await docuqueryApi.listDocuments());
+    } catch {
+      // Non-critical: the scope picker simply falls back to the active document.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDocuments();
+  }, [loadDocuments]);
+
+  // Merge fetched documents with the just-ingested one (dedupe by id).
+  const scopeOptions: ScopeOption[] = (() => {
+    const map = new Map<number, string>();
+    documents.forEach((d) => map.set(d.id, d.title));
+    if (activeDoc) map.set(activeDoc.documentId, activeDoc.title);
+    return Array.from(map, ([id, title]) => ({ id, title }));
+  })();
+
+  const scopedTitle =
+    scopeId === 'all' ? 'All documents' : scopeOptions.find((o) => o.id === scopeId)?.title;
 
   // Reveal: after ingestion, bring the query section into view and focus it.
   useEffect(() => {
@@ -48,7 +76,9 @@ export default function App() {
     setQueryResult(null);
     setQueryError(null);
     setActiveDoc(result);
-  }, []);
+    setScopeId(result.documentId); // ask against the document you just added
+    void loadDocuments();
+  }, [loadDocuments]);
 
   const handleQuery = useCallback(async (question: string) => {
     queryAbortRef.current?.abort();
@@ -60,7 +90,8 @@ export default function App() {
 
     const start = Date.now();
     try {
-      const response = await docuqueryApi.query({ question }, queryAbortRef.current.signal);
+      const body = scopeId === 'all' ? { question } : { question, documentId: String(scopeId) };
+      const response = await docuqueryApi.query(body, queryAbortRef.current.signal);
       setQueryResult({ response, latencyMs: Date.now() - start });
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
@@ -70,7 +101,7 @@ export default function App() {
     } finally {
       setQueryLoading(false);
     }
-  }, []);
+  }, [scopeId]);
 
   const handleAskAnother = useCallback(() => {
     setQueryResult(null);
@@ -104,6 +135,9 @@ export default function App() {
             <StepLabel n={2} title="Ask questions" active={hasIngested} />
             {hasIngested ? (
               <div className="space-y-5 animate-slide-up">
+                {scopeOptions.length > 1 && (
+                  <DocumentScope options={scopeOptions} value={scopeId} onChange={setScopeId} />
+                )}
                 {activeDoc && !queryResult && !queryError && !queryLoading && (
                   <div
                     role="status"
@@ -122,7 +156,7 @@ export default function App() {
                 <QueryInterface
                   loading={queryLoading}
                   onSubmit={handleQuery}
-                  activeDocTitle={activeDoc?.title}
+                  activeDocTitle={scopedTitle}
                   focusSignal={focusSignal}
                 />
                 <AnswerDisplay

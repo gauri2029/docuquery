@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -72,19 +73,24 @@ public class VectorStoreService {
     }
 
     @SuppressWarnings("unchecked")
-    public List<String> query(List<Double> queryEmbedding, int topK) {
+    public List<String> query(List<Double> queryEmbedding, int topK, String documentId) {
         String colId = getOrCreateCollection();
 
         List<List<Float>> floatEmbedding = List.of(
                 queryEmbedding.stream().map(Double::floatValue).toList()
         );
 
+        Map<String, Object> body = new HashMap<>();
+        body.put("query_embeddings", floatEmbedding);
+        body.put("n_results", topK);
+        // Scope the search to a single document when an id is supplied.
+        if (documentId != null && !documentId.isBlank()) {
+            body.put("where", Map.of("documentId", documentId));
+        }
+
         Map<String, Object> response = webClient.post()
                 .uri(BASE_PATH + "/collections/" + colId + "/query")
-                .bodyValue(Map.of(
-                        "query_embeddings", floatEmbedding,
-                        "n_results", topK
-                ))
+                .bodyValue(body)
                 .retrieve()
                 .bodyToMono(Map.class)
                 .block();

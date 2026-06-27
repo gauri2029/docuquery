@@ -57,11 +57,13 @@ public class QueryController {
         return queryLatencyTimer.record(() -> {
             try {
                 String question = request.get("question");
+                // Optional: scope retrieval to a single document (backward-compatible).
+                String documentId = request.get("documentId");
 
                 List<List<Double>> embeddings = embeddingService.embed(List.of(question));
                 List<Double> queryEmbedding = embeddings.get(0);
 
-                List<String> relevantChunks = vectorStoreService.query(queryEmbedding, 12);
+                List<String> relevantChunks = vectorStoreService.query(queryEmbedding, 12, documentId);
 
                 String context = String.join("\n\n---\n\n", relevantChunks);
                 String userMessage = "Context:\n" + context + "\n\nQuestion: " + question;
