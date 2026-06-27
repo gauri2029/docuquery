@@ -92,4 +92,17 @@ public class VectorStoreService {
         List<List<String>> documents = (List<List<String>>) response.get("documents");
         return documents.get(0);
     }
+
+    /** Remove all vectors belonging to a document so deletes don't leave orphans in ChromaDB. */
+    @SuppressWarnings("unchecked")
+    public void deleteByDocument(Long documentId) {
+        String colId = getOrCreateCollection();
+
+        webClient.post()
+                .uri(BASE_PATH + "/collections/" + colId + "/delete")
+                .bodyValue(Map.of("where", Map.of("documentId", String.valueOf(documentId))))
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
+    }
 }
