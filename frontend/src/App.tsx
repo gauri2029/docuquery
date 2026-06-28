@@ -2,51 +2,37 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { DocumentRecord, IngestResponse, QueryResult } from './types';
 import { docuqueryApi, ApiError } from './api/docuquery';
 import { Header } from './components/Header';
-import { Hero } from './components/Hero';
 import { IngestPanel } from './components/IngestPanel';
 import { QueryInterface } from './components/QueryInterface';
 import { AnswerDisplay } from './components/AnswerDisplay';
-import { DocumentScope, type ScopeOption } from './components/DocumentScope';
-
-function StepLabel({ n, title, active }: { n: number; title: string; active: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5 mb-3">
-      <span
-        className={[
-          'flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors',
-          active ? 'bg-gradient-to-br from-brand-600 to-violet-600 text-white shadow-sm' : 'bg-slate-200 text-slate-500',
-        ].join(' ')}
-      >
-        {n}
-      </span>
-      <h2 className={['text-sm font-semibold tracking-tight', active ? 'text-slate-900' : 'text-slate-400'].join(' ')}>
-        {title}
-      </h2>
-    </div>
-  );
-}
+import { DocumentLibrary } from './components/DocumentLibrary';
+import { EvidencePanel } from './components/EvidencePanel';
+import { extractCitations } from './lib/citations';
 
 export default function App() {
-  const [activeDoc, setActiveDoc] = useState<IngestResponse | null>(null);
-  const [focusSignal, setFocusSignal] = useState(0);
-
-  // Known documents + the sticky scope the user is asking against.
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [activeDoc, setActiveDoc] = useState<IngestResponse | null>(null);
   const [scopeId, setScopeId] = useState<number | 'all'>('all');
+  const [focusSignal, setFocusSignal] = useState(0);
 
   const [queryLoading, setQueryLoading] = useState(false);
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
   const queryAbortRef = useRef<AbortController | null>(null);
-  const askSectionRef = useRef<HTMLDivElement>(null);
 
-  const hasIngested = activeDoc !== null;
+  const [showAdd, setShowAdd] = useState(false);
+  const [clarifyQuestion, setClarifyQuestion] = useState<string | null>(null);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [highlightedCite, setHighlightedCite] = useState<number | null>(null);
+
+  const hasDocuments = documents.length > 0 || activeDoc !== null;
+  const citations = queryResult ? extractCitations(queryResult.response.answer) : [];
 
   const loadDocuments = useCallback(async () => {
     try {
       setDocuments(await docuqueryApi.listDocuments());
     } catch {
-      // Non-critical: the scope picker simply falls back to the active document.
+      // Non-critical: the library falls back to the active document.
     }
   }, []);
 
@@ -54,43 +40,30 @@ export default function App() {
     void loadDocuments();
   }, [loadDocuments]);
 
-  // Merge fetched documents with the just-ingested one (dedupe by id).
-  const scopeOptions: ScopeOption[] = (() => {
-    const map = new Map<number, string>();
-    documents.forEach((d) => map.set(d.id, d.title));
-    if (activeDoc) map.set(activeDoc.documentId, activeDoc.title);
-    return Array.from(map, ([id, title]) => ({ id, title }));
-  })();
-
-  const scopedTitle =
-    scopeId === 'all' ? 'All documents' : scopeOptions.find((o) => o.id === scopeId)?.title;
-
-  // Reveal: after ingestion, bring the query section into view and focus it.
-  useEffect(() => {
-    if (!activeDoc) return;
-    askSectionRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
-    setFocusSignal((n) => n + 1);
-  }, [activeDoc]);
-
   const handleIngestSuccess = useCallback((result: IngestResponse) => {
     setQueryResult(null);
     setQueryError(null);
     setActiveDoc(result);
     setScopeId(result.documentId); // ask against the document you just added
+    setShowAdd(false);
+    setFocusSignal((n) => n + 1);
     void loadDocuments();
   }, [loadDocuments]);
 
-  const handleQuery = useCallback(async (question: string) => {
+  const runQuery = useCallback(async (question: string, docId: number | 'all') => {
     queryAbortRef.current?.abort();
     queryAbortRef.current = new AbortController();
 
+    setClarifyQuestion(null);
+    setEvidenceOpen(false);
+    setHighlightedCite(null);
     setQueryLoading(true);
     setQueryError(null);
     setQueryResult(null);
 
     const start = Date.now();
     try {
-      const body = scopeId === 'all' ? { question } : { question, documentId: String(scopeId) };
+      const body = docId === 'all' ? { question } : { question, documentId: String(docId) };
       const response = await docuqueryApi.query(body, queryAbortRef.current.signal);
       setQueryResult({ response, latencyMs: Date.now() - start });
     } catch (e) {
@@ -101,93 +74,165 @@ export default function App() {
     } finally {
       setQueryLoading(false);
     }
-  }, [scopeId]);
+  }, []);
+
+  // Ask: if scope is "all" but several documents exist, clarify first.
+  const handleAsk = useCallback((question: string) => {
+    if (scopeId === 'all' && documents.length > 1) {
+      setClarifyQuestion(question);
+      return;
+    }
+    void runQuery(question, scopeId);
+  }, [scopeId, documents.length, runQuery]);
+
+  const handleClarifySelect = useCallback((docId: number | 'all') => {
+    setScopeId(docId);
+    if (clarifyQuestion) void runQuery(clarifyQuestion, docId);
+  }, [clarifyQuestion, runQuery]);
 
   const handleAskAnother = useCallback(() => {
     setQueryResult(null);
     setQueryError(null);
+    setEvidenceOpen(false);
     setFocusSignal((n) => n + 1);
   }, []);
 
-  return (
-    <div className="relative min-h-screen flex flex-col overflow-hidden bg-gradient-to-b from-slate-50 via-white to-brand-50/40">
-      {/* Soft decorative background blobs */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-brand-300/20 blur-3xl" />
-        <div className="absolute top-40 -right-24 w-96 h-96 rounded-full bg-violet-300/20 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 w-80 h-80 rounded-full bg-pink-200/20 blur-3xl" />
-      </div>
+  const handleTrace = useCallback((n?: number) => {
+    setEvidenceOpen(true);
+    setHighlightedCite(n ?? null);
+  }, []);
 
+  const scopedTitle =
+    scopeId === 'all'
+      ? 'All documents'
+      : documents.find((d) => d.id === scopeId)?.title ?? activeDoc?.title;
+
+  // ---- Onboarding (no documents yet) ----------------------------------------
+  if (!hasDocuments) {
+    return (
+      <div className="min-h-screen flex flex-col bg-paper">
+        <Header />
+        <main className="flex-1 w-full max-w-xl mx-auto px-4 py-12 sm:py-16">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Add a document to begin</h1>
+          <p className="mt-1.5 text-sm text-ink-soft">
+            Index a technical document, then ask questions and trace every answer back to its sources.
+          </p>
+          <div className="mt-6">
+            <IngestPanel onSuccess={handleIngestSuccess} />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // ---- Workspace (three panels) ---------------------------------------------
+  return (
+    <div className="h-screen flex flex-col bg-paper overflow-hidden">
       <Header />
 
-      <main className="relative flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-        <Hero />
+      <div
+        className="flex-1 min-h-0 w-full max-w-[1400px] mx-auto px-3 sm:px-4 py-4 grid gap-4"
+        style={{
+          gridTemplateColumns: evidenceOpen
+            ? 'minmax(220px,260px) minmax(0,1fr) minmax(280px,340px)'
+            : 'minmax(220px,260px) minmax(0,1fr)',
+        }}
+      >
+        {/* Left — library */}
+        <div className="hidden lg:block min-h-0">
+          <DocumentLibrary
+            documents={documents}
+            activeId={scopeId}
+            onSelect={setScopeId}
+            onAddDocument={() => setShowAdd(true)}
+          />
+        </div>
 
-        <div className="grid lg:grid-cols-2 gap-5 items-start">
-          {/* Step 1 — Add document */}
-          <section>
-            <StepLabel n={1} title="Add document" active={!hasIngested} />
-            <IngestPanel onSuccess={handleIngestSuccess} />
-          </section>
+        {/* Center — conversation */}
+        <div className="min-h-0 flex flex-col border border-paper-200 rounded-lg bg-white">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4">
+            <AnswerDisplay
+              result={queryResult}
+              loading={queryLoading}
+              error={queryError}
+              citations={citations}
+              onTrace={handleTrace}
+              onAskAnother={handleAskAnother}
+            />
+          </div>
 
-          {/* Step 2 — Ask questions */}
-          <section ref={askSectionRef} className="scroll-mt-24">
-            <StepLabel n={2} title="Ask questions" active={hasIngested} />
-            {hasIngested ? (
-              <div className="space-y-5 animate-slide-up">
-                {scopeOptions.length > 1 && (
-                  <DocumentScope options={scopeOptions} value={scopeId} onChange={setScopeId} />
-                )}
-                {activeDoc && !queryResult && !queryError && !queryLoading && (
-                  <div
-                    role="status"
-                    className="flex items-start gap-3 p-3.5 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50"
-                  >
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </span>
-                    <p className="text-sm font-semibold text-emerald-900">
-                      {activeDoc.title} is ready — ask your first question.
-                    </p>
-                  </div>
-                )}
-                <QueryInterface
-                  loading={queryLoading}
-                  onSubmit={handleQuery}
-                  activeDocTitle={scopedTitle}
-                  focusSignal={focusSignal}
-                />
-                <AnswerDisplay
-                  result={queryResult}
-                  loading={queryLoading}
-                  error={queryError}
-                  onAskAnother={handleAskAnother}
-                />
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-14 text-center">
-                <div className="w-12 h-12 mx-auto rounded-2xl bg-white border border-slate-200 flex items-center justify-center mb-4 shadow-sm">
-                  <svg className="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <p className="text-sm font-semibold text-slate-500">Add a document to begin</p>
-                <p className="text-sm text-slate-400 mt-1">
-                  Once ingested, ask questions and explore topics here.
+          <div className="border-t border-paper-200 p-4 space-y-3">
+            {clarifyQuestion && (
+              <div role="group" aria-label="Choose a document" className="rounded-md border border-amber-200 bg-amber-50 p-3 animate-fade-in">
+                <p className="text-sm text-ink">
+                  Which document should I search for <span className="font-medium">“{clarifyQuestion}”</span>?
                 </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {documents.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => handleClarifySelect(d.id)}
+                      className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-paper-200 bg-white text-ink hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                    >
+                      {d.title}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => handleClarifySelect('all')}
+                    className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-paper-200 bg-white text-ink-soft hover:bg-paper-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                  >
+                    Search all documents
+                  </button>
+                </div>
               </div>
             )}
-          </section>
-        </div>
-      </main>
 
-      <footer className="relative border-t border-slate-200/70 bg-white/60 backdrop-blur py-4 mt-2">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-400">
-          DocuQuery · source-grounded answers from your documentation
+            <QueryInterface
+              loading={queryLoading}
+              onSubmit={handleAsk}
+              activeDocTitle={scopedTitle}
+              focusSignal={focusSignal}
+            />
+          </div>
         </div>
-      </footer>
+
+        {/* Right — evidence */}
+        {evidenceOpen && (
+          <div className="hidden lg:block min-h-0">
+            <EvidencePanel
+              open={evidenceOpen}
+              onClose={() => setEvidenceOpen(false)}
+              citations={citations}
+              sourcesUsed={queryResult?.response.sourcesUsed ?? null}
+              highlighted={highlightedCite}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Add document modal */}
+      {showAdd && (
+        <div className="fixed inset-0 z-30 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setShowAdd(false)}
+            className="fixed inset-0 bg-ink/30"
+          />
+          <div className="relative w-full max-w-xl mt-8">
+            <IngestPanel onSuccess={handleIngestSuccess} />
+            <button
+              type="button"
+              onClick={() => setShowAdd(false)}
+              className="mt-3 w-full text-center text-sm text-ink-soft hover:text-ink"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -35,34 +35,22 @@ async function ingestDocument(title = 'AtlasFlow README') {
   await userEvent.click(screen.getByRole('button', { name: /ingest document/i }));
 }
 
-describe('App workflow', () => {
+describe('App workspace', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('shows the add-document step and a muted ask placeholder on first load', () => {
+  it('shows the onboarding add-document state on first load', () => {
     render(<App />);
-    expect(screen.getByLabelText(/document title/i)).toBeTruthy();
     expect(screen.getByText(/add a document to begin/i)).toBeTruthy();
+    expect(screen.getByLabelText(/document title/i)).toBeTruthy();
     expect(screen.queryByLabelText(/your question/i)).toBeNull();
   });
 
-  it('reveals the query workspace and active document after ingestion', async () => {
+  it('reveals the conversation workspace after ingestion', async () => {
     render(<App />);
     await ingestDocument();
-
     await waitFor(() => {
-      expect(screen.getByText(/AtlasFlow README is ready/i)).toBeTruthy();
+      expect(screen.getByLabelText(/your question/i)).toBeTruthy();
     });
-    expect(screen.getByLabelText(/your question/i)).toBeTruthy();
-  });
-
-  it('keeps the ingestion panel available after ingestion (no lock-out)', async () => {
-    render(<App />);
-    await ingestDocument();
-    await waitFor(() => screen.getByLabelText(/your question/i));
-
-    // Both steps remain on screen — the user can add another document or ask.
-    expect(screen.getByLabelText(/document title/i)).toBeTruthy();
-    expect(screen.getByLabelText(/your question/i)).toBeTruthy();
   });
 
   it('scopes the query to the active document after ingestion', async () => {

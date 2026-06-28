@@ -10,6 +10,10 @@ interface AnswerDisplayProps {
   error: string | null;
   /** Clears the current answer and returns focus to the question input. */
   onAskAnother?: () => void;
+  /** Ordered cited section labels — enables numbered answer markers. */
+  citations?: string[];
+  /** Open the evidence panel (optionally focused on a citation number). */
+  onTrace?: (n?: number) => void;
 }
 
 function formatLatency(ms: number) {
@@ -17,7 +21,7 @@ function formatLatency(ms: number) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-export function AnswerDisplay({ result, loading, error, onAskAnother }: AnswerDisplayProps) {
+export function AnswerDisplay({ result, loading, error, onAskAnother, citations, onTrace }: AnswerDisplayProps) {
   const [copied, setCopied] = useState(false);
 
   async function copyAnswer() {
@@ -68,7 +72,7 @@ export function AnswerDisplay({ result, loading, error, onAskAnother }: AnswerDi
         {/* Empty state */}
         {!loading && !error && !result && (
           <div className="flex flex-col items-center py-12 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-50 to-violet-50 border border-brand-100 flex items-center justify-center mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center mb-4">
               <svg className="w-7 h-7 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
@@ -84,7 +88,7 @@ export function AnswerDisplay({ result, loading, error, onAskAnother }: AnswerDi
         {loading && (
           <div className="flex flex-col items-center py-12 text-center animate-fade-in" role="status" aria-label="Generating answer">
             <div className="relative w-14 h-14 mb-4">
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-brand-50 to-violet-50 border border-brand-100" />
+              <div className="absolute inset-0 rounded-2xl bg-brand-50 border border-brand-100" />
               <div className="absolute inset-0 flex items-center justify-center">
                 <Spinner size="md" />
               </div>
@@ -125,13 +129,13 @@ export function AnswerDisplay({ result, loading, error, onAskAnother }: AnswerDi
 
             {/* Answer text */}
             <div className="flex items-start gap-2.5">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-6 h-6 rounded-full bg-brand-700 flex items-center justify-center shrink-0 mt-0.5">
                 <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0" aria-label="Generated answer">
-                <Markdown content={result.response.answer} />
+                <Markdown content={result.response.answer} citationOrder={citations} onCiteClick={(n) => onTrace?.(n)} />
               </div>
             </div>
 
@@ -162,18 +166,32 @@ export function AnswerDisplay({ result, loading, error, onAskAnother }: AnswerDi
                 {formatLatency(result.latencyMs)}
               </span>
 
-              {onAskAnother && (
-                <button
-                  type="button"
-                  onClick={onAskAnother}
-                  className="ml-auto inline-flex items-center gap-1.5 font-medium text-brand-600 hover:text-brand-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded px-2 py-1"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Ask another question
-                </button>
-              )}
+              <div className="ml-auto flex items-center gap-1">
+                {onTrace && citations && citations.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => onTrace()}
+                    className="inline-flex items-center gap-1.5 font-medium text-brand-700 hover:text-brand-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded px-2 py-1"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7M5 5l7 7-7 7" />
+                    </svg>
+                    Trace answer
+                  </button>
+                )}
+                {onAskAnother && (
+                  <button
+                    type="button"
+                    onClick={onAskAnother}
+                    className="inline-flex items-center gap-1.5 font-medium text-ink-soft hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded px-2 py-1"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Ask another
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
