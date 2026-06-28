@@ -1,26 +1,45 @@
 /**
- * Compact product header: logo mark, name, and a short descriptor.
- * Intentionally free of backend-status chips or developer links so the app
- * reads as a finished product rather than a demo.
+ * Product header: custom mark + wordmark + subtitle on a layered teal surface.
+ * Compact, with depth from gradient + border + restrained shadow (no plain
+ * white navbar, no purple).
  */
 export function Header() {
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/80 backdrop-blur-md">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3 h-16">
-          <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 flex items-center justify-center shadow-sm">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
+    <header className="relative z-20 border-b border-brand-900/40 bg-brand-800 text-paper shadow-[0_2px_16px_-6px_rgba(0,0,0,0.4)]">
+      {/* Layered texture: soft radial glow + faint grid */}
+      <div className="absolute inset-0 opacity-60" aria-hidden="true"
+        style={{
+          backgroundImage:
+            'radial-gradient(420px 120px at 8% 0%, rgba(255,255,255,0.10), transparent 70%), linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px)',
+          backgroundSize: 'auto, 28px 28px',
+        }}
+      />
+      <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6">
+        <div className="flex items-center gap-3 h-14">
+          <Mark />
           <div className="leading-tight">
-            <h1 className="text-lg font-bold tracking-tight text-slate-900">DocuQuery</h1>
-            <p className="text-xs text-slate-500 hidden sm:block">
-              Source-grounded answers from your documentation
-            </p>
+            <h1 className="font-display text-[17px] font-bold tracking-tight text-white">
+              Docu<span className="text-amber-300">Query</span>
+            </h1>
+            <p className="text-[11px] text-paper-200/80 -mt-0.5">Document intelligence workspace</p>
           </div>
         </div>
       </div>
     </header>
+  );
+}
+
+function Mark() {
+  return (
+    <span className="relative flex-shrink-0 w-9 h-9 rounded-lg bg-brand-600 border border-brand-400/40 shadow-inner flex items-center justify-center">
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        {/* stacked pages */}
+        <rect x="5" y="4" width="11" height="15" rx="2" fill="#ffffff" opacity="0.92" />
+        <rect x="8" y="6.5" width="11" height="15" rx="2" fill="#fcd34d" />
+        {/* query glyph */}
+        <circle cx="13" cy="13" r="3" fill="none" stroke="#19413d" strokeWidth="1.6" />
+        <line x1="15.2" y1="15.2" x2="17.5" y2="17.5" stroke="#19413d" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    </span>
   );
 }

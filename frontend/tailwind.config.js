@@ -5,20 +5,41 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       colors: {
+        // Deep teal accent (editorial developer-tool palette)
         brand: {
-          50: '#f0f4ff',
-          100: '#dde7ff',
-          200: '#c3d3ff',
-          300: '#9db5ff',
-          400: '#7090ff',
-          500: '#4a6cf7',
-          600: '#3451eb',
-          700: '#2a3fd3',
-          800: '#2636ab',
-          900: '#253287',
+          50: '#f1f7f6',
+          100: '#d9ebe8',
+          200: '#b3d7d1',
+          300: '#84bbb3',
+          400: '#519a91',
+          500: '#327d74',
+          600: '#22655d',
+          700: '#1d514b',
+          800: '#19413d',
+          900: '#163734',
+        },
+        // Warm off-white surfaces + charcoal ink
+        paper: {
+          DEFAULT: '#faf8f4',
+          50: '#fdfcfa',
+          100: '#f6f3ec',
+          200: '#ece7dc',
+        },
+        // Warm sand for distinct panel tones
+        sand: {
+          50: '#f7f1e6',
+          100: '#efe6d4',
+          200: '#e2d4ba',
+          300: '#d2bd99',
+        },
+        ink: {
+          DEFAULT: '#2b2a28',
+          soft: '#54514c',
+          faint: '#8a857d',
         },
       },
       animation: {
