@@ -17,9 +17,9 @@ export function EvidencePanel({ open, onClose, citations, sourcesUsed, highlight
   if (!open) return null;
 
   return (
-    <aside className="flex flex-col h-full border border-paper-200 rounded-lg bg-paper-50 animate-fade-in">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-paper-200">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Evidence</h2>
+    <aside className="flex flex-col h-full border border-brand-200 rounded-xl bg-brand-50 shadow-sm animate-fade-in">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-brand-200">
+        <h2 className="font-display text-xs font-semibold uppercase tracking-wide text-brand-800">Evidence</h2>
         <button
           type="button"
           onClick={onClose}

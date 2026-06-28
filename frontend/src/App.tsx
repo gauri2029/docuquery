@@ -7,6 +7,7 @@ import { QueryInterface } from './components/QueryInterface';
 import { AnswerDisplay } from './components/AnswerDisplay';
 import { DocumentLibrary } from './components/DocumentLibrary';
 import { EvidencePanel } from './components/EvidencePanel';
+import { QuestionCard } from './components/QuestionCard';
 import { extractCitations } from './lib/citations';
 
 export default function App() {
@@ -24,6 +25,11 @@ export default function App() {
   const [clarifyQuestion, setClarifyQuestion] = useState<string | null>(null);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [highlightedCite, setHighlightedCite] = useState<number | null>(null);
+
+  // Q&A interaction: the input starts expanded, then collapses to a summary
+  // card once a question is asked so the answer becomes the focus.
+  const [inputOpen, setInputOpen] = useState(true);
+  const [askedQuestion, setAskedQuestion] = useState<string | null>(null);
 
   const hasDocuments = documents.length > 0 || activeDoc !== null;
   const citations = queryResult ? extractCitations(queryResult.response.answer) : [];
@@ -46,6 +52,8 @@ export default function App() {
     setActiveDoc(result);
     setScopeId(result.documentId); // ask against the document you just added
     setShowAdd(false);
+    setAskedQuestion(null);
+    setInputOpen(true);
     setFocusSignal((n) => n + 1);
     void loadDocuments();
   }, [loadDocuments]);
@@ -76,8 +84,10 @@ export default function App() {
     }
   }, []);
 
-  // Ask: if scope is "all" but several documents exist, clarify first.
+  // Ask: collapse the input; if scope is "all" with several docs, clarify first.
   const handleAsk = useCallback((question: string) => {
+    setAskedQuestion(question);
+    setInputOpen(false);
     if (scopeId === 'all' && documents.length > 1) {
       setClarifyQuestion(question);
       return;
@@ -90,10 +100,9 @@ export default function App() {
     if (clarifyQuestion) void runQuery(clarifyQuestion, docId);
   }, [clarifyQuestion, runQuery]);
 
-  const handleAskAnother = useCallback(() => {
-    setQueryResult(null);
-    setQueryError(null);
-    setEvidenceOpen(false);
+  // Reopen the input (from the minimized question card or "Ask another").
+  const reopenInput = useCallback(() => {
+    setInputOpen(true);
     setFocusSignal((n) => n + 1);
   }, []);
 
@@ -110,10 +119,10 @@ export default function App() {
   // ---- Onboarding (no documents yet) ----------------------------------------
   if (!hasDocuments) {
     return (
-      <div className="min-h-screen flex flex-col bg-paper">
+      <div className="min-h-screen flex flex-col app-canvas">
         <Header />
         <main className="flex-1 w-full max-w-xl mx-auto px-4 py-12 sm:py-16">
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">Add a document to begin</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Add a document to begin</h1>
           <p className="mt-1.5 text-sm text-ink-soft">
             Index a technical document, then ask questions and trace every answer back to its sources.
           </p>
@@ -127,7 +136,7 @@ export default function App() {
 
   // ---- Workspace (three panels) ---------------------------------------------
   return (
-    <div className="h-screen flex flex-col bg-paper overflow-hidden">
+    <div className="h-screen flex flex-col app-canvas overflow-hidden">
       <Header />
 
       <div
@@ -149,52 +158,56 @@ export default function App() {
         </div>
 
         {/* Center — conversation */}
-        <div className="min-h-0 flex flex-col border border-paper-200 rounded-lg bg-white">
-          <div className="flex-1 min-h-0 overflow-y-auto p-4">
-            <AnswerDisplay
-              result={queryResult}
-              loading={queryLoading}
-              error={queryError}
-              citations={citations}
-              onTrace={handleTrace}
-              onAskAnother={handleAskAnother}
-            />
-          </div>
+        <div className="min-h-0 flex flex-col border border-paper-200 rounded-xl bg-white shadow-sm overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4">
+            {inputOpen ? (
+              <QueryInterface
+                loading={queryLoading}
+                onSubmit={handleAsk}
+                activeDocTitle={scopedTitle}
+                focusSignal={focusSignal}
+              />
+            ) : (
+              <div className="space-y-4 animate-slide-up">
+                {askedQuestion && <QuestionCard question={askedQuestion} onReopen={reopenInput} />}
 
-          <div className="border-t border-paper-200 p-4 space-y-3">
-            {clarifyQuestion && (
-              <div role="group" aria-label="Choose a document" className="rounded-md border border-amber-200 bg-amber-50 p-3 animate-fade-in">
-                <p className="text-sm text-ink">
-                  Which document should I search for <span className="font-medium">“{clarifyQuestion}”</span>?
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {documents.map((d) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => handleClarifySelect(d.id)}
-                      className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-paper-200 bg-white text-ink hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-                    >
-                      {d.title}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => handleClarifySelect('all')}
-                    className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-paper-200 bg-white text-ink-soft hover:bg-paper-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-                  >
-                    Search all documents
-                  </button>
-                </div>
+                {clarifyQuestion ? (
+                  <div role="group" aria-label="Choose a document" className="rounded-xl border border-amber-200 bg-amber-50 p-4 animate-fade-in">
+                    <p className="text-sm text-ink">
+                      Which document should I search for <span className="font-medium">“{clarifyQuestion}”</span>?
+                    </p>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      {documents.map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => handleClarifySelect(d.id)}
+                          className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-sand-200 bg-white text-ink hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                        >
+                          {d.title}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => handleClarifySelect('all')}
+                        className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-sand-200 bg-white text-ink-soft hover:bg-sand-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                      >
+                        Search all documents
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <AnswerDisplay
+                    result={queryResult}
+                    loading={queryLoading}
+                    error={queryError}
+                    citations={citations}
+                    onTrace={handleTrace}
+                    onAskAnother={reopenInput}
+                  />
+                )}
               </div>
             )}
-
-            <QueryInterface
-              loading={queryLoading}
-              onSubmit={handleAsk}
-              activeDocTitle={scopedTitle}
-              focusSignal={focusSignal}
-            />
           </div>
         </div>
 

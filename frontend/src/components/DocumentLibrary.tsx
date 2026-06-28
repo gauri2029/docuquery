@@ -10,9 +10,9 @@ interface DocumentLibraryProps {
 /** Left rail: indexed document library with active-document selection. */
 export function DocumentLibrary({ documents, activeId, onSelect, onAddDocument }: DocumentLibraryProps) {
   return (
-    <aside className="flex flex-col h-full border border-paper-200 rounded-lg bg-paper-50">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-paper-200">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Documents</h2>
+    <aside className="flex flex-col h-full border border-sand-200 rounded-xl bg-sand-50 shadow-sm">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-sand-200">
+        <h2 className="font-display text-xs font-semibold uppercase tracking-wide text-ink-soft">Documents</h2>
         <button
           type="button"
           onClick={onAddDocument}
@@ -43,11 +43,11 @@ export function DocumentLibrary({ documents, activeId, onSelect, onAddDocument }
         ))}
       </nav>
 
-      <div className="p-2 border-t border-paper-200">
+      <div className="p-2 border-t border-sand-200">
         <button
           type="button"
           onClick={onAddDocument}
-          className="w-full inline-flex items-center justify-center gap-2 text-sm font-medium px-3 py-2 rounded-md border border-paper-200 bg-white text-ink hover:bg-paper-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          className="w-full inline-flex items-center justify-center gap-2 text-sm font-medium px-3 py-2 rounded-md border border-sand-200 bg-white text-ink hover:bg-sand-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -69,7 +69,7 @@ function LibraryItem({ label, sub, active, onClick }: { label: string; sub: stri
         'w-full text-left rounded-md px-3 py-2 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
         active
           ? 'border-brand-200 bg-brand-50'
-          : 'border-transparent hover:bg-paper-100',
+          : 'border-transparent hover:bg-sand-100',
       ].join(' ')}
     >
       <span className={['block text-sm truncate', active ? 'font-semibold text-brand-800' : 'text-ink'].join(' ')}>

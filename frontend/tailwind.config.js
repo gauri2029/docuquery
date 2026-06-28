@@ -5,6 +5,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       colors: {
@@ -27,6 +28,13 @@ export default {
           50: '#fdfcfa',
           100: '#f6f3ec',
           200: '#ece7dc',
+        },
+        // Warm sand for distinct panel tones
+        sand: {
+          50: '#f7f1e6',
+          100: '#efe6d4',
+          200: '#e2d4ba',
+          300: '#d2bd99',
         },
         ink: {
           DEFAULT: '#2b2a28',
